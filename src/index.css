@@ -21,3 +21,40 @@ body {
   background: var(--color-wieben-cream);
   color: var(--color-wieben-forest);
 }
+
+/* Mikroanimationer for trin-skift i priskonfiguratoren. Retningen (forward/
+   backward) fortæller brugeren visuelt om de bevæger sig frem eller tilbage
+   i flowet. */
+@keyframes step-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes step-in-backward {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-step-in-forward {
+  animation: step-in-forward 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.animate-step-in-backward {
+  animation: step-in-backward 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-step-in-forward,
+  .animate-step-in-backward {
+    animation: none;
+  }
+}

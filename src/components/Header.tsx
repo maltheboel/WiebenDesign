@@ -1,15 +1,24 @@
 const NAV_ITEMS = ['Løsninger', 'Proces', 'Cases', 'Messekalender', 'Om os']
 
-// Flag emoji (🇬🇧) renders as two stacked letters "GB" instead of a flag on
-// some platforms (notably Windows), so we use a real SVG flag instead.
-function UkFlagIcon() {
+// Flag emoji renders unreliably across platforms (e.g. shows as two stacked
+// letters instead of a flag on Windows), so we use a real SVG flag instead.
+// Same 20x14 viewBox/size as the flag it replaces, so layout is unaffected.
+function UsFlagIcon() {
+  const stripeHeight = 14 / 13
+  const redStripeYs = [0, 2, 4, 6, 8, 10, 12].map((i) => i * stripeHeight)
+  const starRows = [1.5, 3.75, 6]
+  const starCols = [1, 2.6, 4.2, 5.8, 7.4]
+
   return (
     <svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true" className="shrink-0">
-      <rect width="20" height="14" fill="#00247d" />
-      <path d="M0,0 L20,14 M20,0 L0,14" stroke="#fff" strokeWidth="2.6" />
-      <path d="M0,0 L20,14 M20,0 L0,14" stroke="#cf142b" strokeWidth="1" />
-      <path d="M10,0 V14 M0,7 H20" stroke="#fff" strokeWidth="4.4" />
-      <path d="M10,0 V14 M0,7 H20" stroke="#cf142b" strokeWidth="2.2" />
+      <rect width="20" height="14" fill="#fff" />
+      {redStripeYs.map((y) => (
+        <rect key={y} y={y} width="20" height={stripeHeight} fill="#b22234" />
+      ))}
+      <rect width="8" height={7 * stripeHeight} fill="#3c3b6e" />
+      {starRows.map((y) =>
+        starCols.map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="0.32" fill="#fff" />),
+      )}
     </svg>
   )
 }
@@ -46,7 +55,7 @@ export default function Header() {
             className="hidden sm:flex items-center gap-1.5 text-[15px] font-semibold text-neutral-900"
             aria-label="Skift sprog til engelsk"
           >
-            <UkFlagIcon />
+            <UsFlagIcon />
             EN
           </button>
         </div>
