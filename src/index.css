@@ -8,6 +8,10 @@
   --color-wieben-mint-light: #e8f5ec;
   --color-wieben-cream: #faf9f6;
 
+  /* Sampled directly from the Wieben Design logo mark */
+  --color-wieben-teal: #008b97;
+  --color-wieben-teal-dark: #00707a;
+
   --font-sans:
     'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
 }
