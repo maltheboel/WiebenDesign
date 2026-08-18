@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  /* Wieben Design brand palette */
+  --color-wieben-forest: #0a3d2e;
+  --color-wieben-forest-light: #14513f;
+  --color-wieben-mint: #b7e4c7;
+  --color-wieben-mint-light: #e8f5ec;
+  --color-wieben-cream: #faf9f6;
+
+  --font-sans:
+    'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--color-wieben-cream);
+  color: var(--color-wieben-forest);
+}
