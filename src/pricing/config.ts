@@ -130,11 +130,25 @@ export interface ConfiguratorAnswers {
   photography: YesNo
 }
 
+// Overordnede kategorier til prisfordelings-diagrammet og PDF-opsummeringen.
+// Der er ikke noget spørgsmål om grafik/print i flowet, så kategorierne er
+// tilpasset det, vi faktisk har priser på.
+export type PriceCategory = 'construction' | 'layout' | 'tech' | 'catering' | 'upsell'
+
+export const CATEGORY_META: Record<PriceCategory, { label: string; color: string }> = {
+  construction: { label: 'Konstruktion', color: '#0a3d2e' }, // størrelse, åbne sider, gulv, hængeskilt, opbygning
+  layout: { label: 'Indretning', color: '#1d5c46' }, // produktfremvisning, natlig opbevaring
+  tech: { label: 'Teknik', color: '#2f7d5f' }, // lyd/præsentation, internet
+  catering: { label: 'Forplejning', color: '#6fae86' }, // kaffe, køl, håndvask, bar m.m.
+  upsell: { label: 'Mersalg', color: '#b7e4c7' }, // forsikring, opbevaring mellem messer, foto
+}
+
 export interface PriceLine {
   label: string
   amount: number
   description: string
   kind: 'core' | 'upsell'
+  category: PriceCategory
 }
 
 export interface PriceResult {
@@ -184,6 +198,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(base),
       description: 'Grundpris for opbygning — skalerer direkte med kvadratmeter.',
       kind: 'core',
+      category: 'construction',
     },
   ]
 
@@ -194,6 +209,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(openSidesAmount),
       description: 'Flere synlige sider betyder flere flader, der skal fremstå helt færdige.',
       kind: 'core',
+      category: 'construction',
     })
   }
 
@@ -203,6 +219,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(c.hangingSignFee),
       description: 'Godkendelse og rigging fra messehallen samt ekstra montagetid.',
       kind: 'core',
+      category: 'construction',
     })
   }
 
@@ -218,6 +235,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
             ? 'Ægte eller finér-lameller — varmt udtryk, mere tid at lægge og transportere.'
             : 'Tyndt og fleksibelt — hurtigst at lægge og billigst af de tre.',
       kind: 'core',
+      category: 'construction',
     })
   }
 
@@ -228,6 +246,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(displayAmount),
       description: 'Sådan gæster ser og oplever jeres produkter på standen.',
       kind: 'core',
+      category: 'layout',
     })
   }
 
@@ -238,6 +257,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(storageAmount),
       description: 'Sikker opbevaring af værdigenstande, når hallen er lukket.',
       kind: 'core',
+      category: 'layout',
     })
   }
 
@@ -248,6 +268,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(audioAmount),
       description: 'Udstyr til oplæg og demoer for grupper på standen.',
       kind: 'core',
+      category: 'tech',
     })
   }
 
@@ -258,6 +279,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(internetAmount),
       description: 'Egen forbindelse ud over hallens gratis wifi — til betaling, livestream eller tunge demoer.',
       kind: 'core',
+      category: 'tech',
     })
   }
 
@@ -267,6 +289,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(c.cateringItemFee[item]),
       description: 'Lejes særskilt og kræver tilslutning til strøm, vand eller afløb.',
       kind: 'core',
+      category: 'catering',
     })
   })
 
@@ -277,6 +300,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(buildHelpAmount),
       description: 'Vores team klarer opbygning og nedtagning på messen for jer.',
       kind: 'core',
+      category: 'construction',
     })
   }
 
@@ -286,6 +310,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(c.insuranceFee),
       description: 'Dækning mod skader, tyveri eller brand under opstilling og messe.',
       kind: 'upsell',
+      category: 'upsell',
     })
   }
 
@@ -295,6 +320,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(c.storageFee),
       description: 'Vi opbevarer standen på vores lager, til I skal bruge den igen.',
       kind: 'upsell',
+      category: 'upsell',
     })
   }
 
@@ -304,6 +330,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
       amount: formatDkk(c.photographyFee),
       description: 'Professionelle fotos af den færdige stand til jeres egen markedsføring.',
       kind: 'upsell',
+      category: 'upsell',
     })
   }
 

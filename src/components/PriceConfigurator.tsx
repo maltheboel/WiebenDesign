@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  CATEGORY_META,
   PRICING_CONFIG,
   calculatePrice,
   type AudioPresentation,
@@ -11,9 +12,11 @@ import {
   type OpenSides,
   type OvernightStorage,
   type OwnFloorType,
+  type PriceCategory,
   type ProductDisplay,
   type YesNo,
 } from '../pricing/config'
+import { generateSummaryPdf } from '../pdf/generateSummaryPdf'
 
 // Simple, DKK-formatteret visning uden decimaler
 const formatKr = (n: number) => `${n.toLocaleString('da-DK')} kr.`
@@ -24,7 +27,60 @@ const EASE_PREMIUM = 'cubic-bezier(0.16, 1, 0.3, 1)'
 const EASE_SETTLE = 'cubic-bezier(0.34, 1.56, 0.64, 1)' // let "overshoot" til release-animationer
 
 type Direction = 'forward' | 'backward'
-type Phase = 'questions' | 'upsell' | 'summary'
+type Phase = 'questions' | 'upsell' | 'success' | 'summary'
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+// Animerer et tal glidende mod en ny værdi, som et taxameter, i stedet for at
+// "hoppe" til den nye pris. Bruges til den løbende prisindikator, der er
+// synlig hele vejen gennem flowet. Fortsætter fra den aktuelt VISTE værdi
+// (ikke det gamle mål), så hurtige ændringer — fx mens m²-sliderens trækkes —
+// altid ser glidende ud i stedet for at hakke.
+function useAnimatedNumber(target: number, duration = 500) {
+  const [display, setDisplay] = useState(target)
+  const displayRef = useRef(target)
+  const rafRef = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      displayRef.current = target
+      setDisplay(target)
+      return
+    }
+    cancelAnimationFrame(rafRef.current!)
+    const from = displayRef.current
+    if (from === target) return
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration)
+      const eased = 1 - Math.pow(1 - t, 3) // ease-out-cubic
+      const next = Math.round(from + (target - from) * eased)
+      displayRef.current = next
+      setDisplay(next)
+      if (t < 1) rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current!)
+  }, [target, duration])
+
+  return display
+}
+
+// Løbende prisestimat, synligt gennem hele flowet (ikke kun til sidst), så
+// brugeren kan se konsekvensen af hvert valg med det samme.
+function LivePriceTicker({ low, high }: { low: number; high: number }) {
+  const animatedLow = useAnimatedNumber(low)
+  const animatedHigh = useAnimatedNumber(high)
+  return (
+    <div className="sticky top-4 z-20 mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-wieben-forest/10 bg-white/95 px-5 py-3 shadow-sm backdrop-blur">
+      <span className="text-xs font-semibold uppercase tracking-wide text-wieben-forest/50">Estimeret pris lige nu</span>
+      <span className="text-lg font-bold tabular-nums text-wieben-forest">
+        {formatKr(animatedLow)} – {formatKr(animatedHigh)}
+      </span>
+    </div>
+  )
+}
 
 // Rækkefølgen af kernespørgsmål. "floorType" er et betinget opfølgnings-
 // spørgsmål, der kun indgår når brugeren har valgt "eget gulv" — listen
@@ -570,6 +626,112 @@ function NavButtons({
   )
 }
 
+// Kort, rolig "success"-animation mellem tilvalg og den endelige
+// opsummering — cirklen tegner sig, så fluebenet. Ren CSS (stroke-dasharray/
+// -dashoffset), ingen konfetti/emoji, for at holde tonen professionel over
+// for en B2B-målgruppe.
+function SuccessCheckmark() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 py-16">
+      <svg width="88" height="88" viewBox="0 0 88 88" className="text-wieben-forest-light" aria-hidden="true">
+        <circle cx="44" cy="44" r="40" fill="none" stroke="currentColor" strokeWidth="4" className="draw-circle" />
+        <path
+          d="M27 45 L39 57 L61 32"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="draw-check"
+        />
+      </svg>
+      <p className="text-base font-semibold text-wieben-forest">Jeres estimat er klar</p>
+    </div>
+  )
+}
+
+const CATEGORY_ORDER: PriceCategory[] = ['construction', 'layout', 'tech', 'catering', 'upsell']
+
+// Prisfordeling som donut-diagram — supplerer tekst-nedbrydningen, erstatter
+// den ikke. Bygget som "stroke-dasharray"-donut af stablede cirkel-segmenter,
+// så det ikke kræver noget diagram-bibliotek.
+function CategoryDonutChart({ lines, total }: { lines: ReturnType<typeof calculatePrice>['lines']; total: number }) {
+  const radius = 70
+  const circumference = 2 * Math.PI * radius
+
+  const segments = CATEGORY_ORDER.map((cat) => {
+    const amount = lines.filter((l) => l.category === cat).reduce((sum, l) => sum + l.amount, 0)
+    return { category: cat, amount }
+  }).filter((s) => s.amount > 0)
+
+  if (total <= 0 || segments.length === 0) return null
+
+  let offsetSoFar = 0
+
+  return (
+    <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-8">
+      <svg width="180" height="180" viewBox="0 0 180 180" className="shrink-0" role="img" aria-label="Prisfordeling pr. kategori">
+        <g transform="rotate(-90 90 90)">
+          <circle cx="90" cy="90" r={radius} fill="none" stroke="var(--color-wieben-mint-light)" strokeWidth="22" />
+          {segments.map((seg) => {
+            const length = (seg.amount / total) * circumference
+            const dasharray = `${length} ${circumference - length}`
+            const dashoffset = -offsetSoFar
+            offsetSoFar += length
+            return (
+              <circle
+                key={seg.category}
+                cx="90"
+                cy="90"
+                r={radius}
+                fill="none"
+                stroke={CATEGORY_META[seg.category].color}
+                strokeWidth="22"
+                strokeDasharray={dasharray}
+                strokeDashoffset={dashoffset}
+                style={{ transition: `stroke-dasharray 500ms ${EASE_PREMIUM}` }}
+              />
+            )
+          })}
+        </g>
+        <text x="90" y="86" textAnchor="middle" className="fill-wieben-forest" style={{ font: '700 15px Inter, sans-serif' }}>
+          {formatKr(total)}
+        </text>
+        <text
+          x="90"
+          y="103"
+          textAnchor="middle"
+          className="fill-wieben-forest/50"
+          style={{ font: '600 9.5px Inter, sans-serif', letterSpacing: '0.04em' }}
+        >
+          I ALT
+        </text>
+      </svg>
+
+      <ul className="flex w-full flex-col gap-2.5">
+        {segments.map((seg) => {
+          const pct = Math.round((seg.amount / total) * 100)
+          return (
+            <li key={seg.category} className="flex items-center justify-between gap-3 text-sm">
+              <span className="flex items-center gap-2.5 text-wieben-forest">
+                <span
+                  className="h-3 w-3 shrink-0 rounded-[3px]"
+                  style={{ backgroundColor: CATEGORY_META[seg.category].color }}
+                  aria-hidden="true"
+                />
+                {CATEGORY_META[seg.category].label}
+              </span>
+              <span className="whitespace-nowrap font-semibold tabular-nums text-wieben-forest">
+                {pct}% · {formatKr(seg.amount)}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 export default function PriceConfigurator() {
   const [phase, setPhase] = useState<Phase>('questions')
   const [step, setStep] = useState(0)
@@ -599,7 +761,9 @@ export default function PriceConfigurator() {
         setStep((s) => s + 1)
       }
     } else if (phase === 'upsell') {
-      setPhase('summary')
+      // En kort "success"-animation inden selve opsummeringen — springes over
+      // hvis brugeren har bedt om reduceret bevægelse.
+      setPhase(prefersReducedMotion() ? 'summary' : 'success')
     }
   }
 
@@ -615,6 +779,13 @@ export default function PriceConfigurator() {
     }
   }
 
+  // "success"-fasen er transitorisk og går automatisk videre til opsummeringen.
+  useEffect(() => {
+    if (phase !== 'success') return
+    const timer = window.setTimeout(() => setPhase('summary'), 1000)
+    return () => window.clearTimeout(timer)
+  }, [phase])
+
   const price = calculatePrice(answers)
 
   const handleSubmitContact = (e: React.FormEvent) => {
@@ -629,6 +800,7 @@ export default function PriceConfigurator() {
 
   return (
     <section id="konfigurator" className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+      {(phase === 'questions' || phase === 'upsell') && <LivePriceTicker low={price.low} high={price.high} />}
       <div className="overflow-hidden rounded-2xl border border-wieben-forest/10 bg-white p-6 shadow-sm sm:p-10">
         {phase === 'questions' && (
           <ProgressBar
@@ -765,6 +937,8 @@ export default function PriceConfigurator() {
           </div>
         )}
 
+        {phase === 'success' && <SuccessCheckmark />}
+
         {phase === 'summary' && (
           <Summary
             direction={direction}
@@ -824,6 +998,7 @@ function Summary({
   onSubmit: (e: React.FormEvent) => void
 }) {
   const headingRef = useRef<HTMLParagraphElement>(null)
+  const [pdfStatus, setPdfStatus] = useState<'idle' | 'loading' | 'error'>('idle')
 
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true })
@@ -834,6 +1009,17 @@ function Summary({
 
   const coreLines = price.lines.filter((l) => l.kind === 'core')
   const upsellLines = price.lines.filter((l) => l.kind === 'upsell')
+
+  const handleDownloadPdf = async () => {
+    setPdfStatus('loading')
+    try {
+      await generateSummaryPdf({ answers, price, summarySentence, contact })
+      setPdfStatus('idle')
+    } catch (err) {
+      console.error('Kunne ikke generere PDF', err)
+      setPdfStatus('error')
+    }
+  }
 
   return (
     <div className={direction === 'forward' ? 'animate-step-in-forward' : 'animate-step-in-backward'}>
@@ -854,9 +1040,31 @@ function Summary({
         Dette er et estimat baseret på jeres valg — det endelige tilbud kan afvige lidt, når vi kender alle detaljer.
       </p>
 
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={handleDownloadPdf}
+          disabled={pdfStatus === 'loading'}
+          className="inline-flex items-center gap-2 rounded-md border-2 border-wieben-forest/15 bg-white px-4 py-2 text-sm font-semibold text-wieben-forest outline-none transition-colors duration-150 hover:border-wieben-forest-light/40 hover:bg-wieben-cream focus-visible:ring-4 focus-visible:ring-wieben-forest-light/25 disabled:opacity-60"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3v12m0 0l-5-5m5 5l5-5M5 20h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {pdfStatus === 'loading' ? 'Genererer PDF…' : 'Download som PDF'}
+        </button>
+        {pdfStatus === 'error' && (
+          <p className="mt-2 text-sm text-red-600">Der gik noget galt — prøv at downloade PDF'en igen.</p>
+        )}
+      </div>
+
       <p className="mt-6 rounded-lg bg-wieben-mint-light p-4 text-[15px] leading-relaxed text-wieben-forest">
         {summarySentence}
       </p>
+
+      <h3 className="mt-8 mb-4 text-base font-semibold text-wieben-forest">Prisfordeling</h3>
+      <div className="rounded-lg border border-wieben-forest/10 p-5">
+        <CategoryDonutChart lines={price.lines} total={price.total} />
+      </div>
 
       <h3 className="mt-8 mb-3 text-base font-semibold text-wieben-forest">Grundpris og valg</h3>
       <ul className="divide-y divide-wieben-forest/10 overflow-hidden rounded-lg border border-wieben-forest/10">

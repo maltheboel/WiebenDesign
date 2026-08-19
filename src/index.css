@@ -58,3 +58,34 @@ body {
     animation: none;
   }
 }
+
+/* "Success"-checkmarket der vises kort, når brugeren går fra tilvalg til
+   den endelige prisopsummering — cirklen tegner sig, derefter fluebenet. */
+@keyframes draw-circle {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes draw-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.draw-circle {
+  stroke-dasharray: 252;
+  stroke-dashoffset: 252;
+  animation: draw-circle 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.draw-check {
+  stroke-dasharray: 52;
+  stroke-dashoffset: 52;
+  animation: draw-check 350ms cubic-bezier(0.16, 1, 0.3, 1) 350ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draw-circle,
+  .draw-check {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
