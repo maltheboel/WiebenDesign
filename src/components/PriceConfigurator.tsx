@@ -157,42 +157,69 @@ const CATERING_OPTIONS: OptionCard<CateringItem>[] = [
   { value: 'bar', title: 'Bardisk/udskænkningsdisk', description: 'Fast møbel til at servere fra.' },
 ]
 
-const STEP_META: Record<CoreStepId, { title: string; help: string }> = {
+// Hver undertekst er opdelt i tre dele, så den kan vises konsekvent på tværs
+// af alle spørgsmål: `highlight` er nøgleordet/nøglesætningen (vises med
+// grøn accentfarve, semibold), `rest` er resten af den korte primærsætning
+// (dæmpet grå, maks. ca. 8-10 ord i alt), og `tooltip` er den fulde uddybning,
+// som først vises når brugeren åbner "i"-ikonet.
+const STEP_META: Record<CoreStepId, { title: string; highlight: string; rest: string; tooltip: string }> = {
   size: {
     title: 'Hvor stor skal jeres stand være?',
-    help: 'Størrelsen er den største enkeltfaktor i prisen — både materialer og opbygningstid skalerer direkte med kvadratmeter.',
+    highlight: 'Størrelsen',
+    rest: 'er den største faktor i prisen.',
+    tooltip: 'Både materialer og opbygningstid skalerer direkte med antal kvadratmeter.',
   },
   openSides: {
     title: 'Hvor mange sider skal være åbne?',
-    help: 'Jo flere sider gæster kan gå ind fra og se, jo flere flader skal fremstå helt færdige — det er det, der driver prisen.',
+    highlight: 'Flere åbne sider',
+    rest: 'betyder højere pris.',
+    tooltip:
+      'Jo flere sider gæster kan gå ind fra og se, jo flere flader skal fremstå helt færdige — det er det, der driver prisen.',
   },
   hangingSign: {
     title: 'Skal I have et hængeskilt?',
-    help: 'Kræver særskilt godkendelse og rigging fra messehallen samt ekstra montagetid — men er ofte afgørende i store haller, hvor man ikke kan se standene fra gulvhøjde.',
+    highlight: 'Kræver særskilt godkendelse',
+    rest: 'og rigging fra hallen.',
+    tooltip:
+      'Kræver særskilt godkendelse og rigging fra messehallen samt ekstra montagetid — men er ofte afgørende i store haller, hvor man ikke kan se standene fra gulvhøjde.',
   },
   floor: {
     title: 'Hvilket gulv skal standen have?',
-    help: 'Hallens eget gulv er inkluderet i lejen. Vælger I jeres eget, kan I style det præcis som I vil.',
+    highlight: 'Standardgulvet',
+    rest: 'er allerede inkluderet i lejen.',
+    tooltip: 'Hallens eget gulv er inkluderet i lejen. Vælger I jeres eget, kan I style det præcis som I vil.',
   },
   floorType: {
     title: 'Hvilken type gulv skal I have?',
-    help: 'De tre typer adskiller sig på pris, udtryk og hvor lang tid de tager at lægge.',
+    highlight: 'Pris, udtryk og lægge-tid',
+    rest: 'adskiller de tre typer.',
+    tooltip: 'De tre typer adskiller sig på pris, udtryk og hvor lang tid de tager at lægge.',
   },
   productDisplay: {
     title: 'Hvordan skal gæster se jeres produkter?',
-    help: 'Måden produkterne vises på påvirker både indretning og hvilket udstyr standen skal bygges med.',
+    highlight: 'Måden produkterne vises på',
+    rest: 'påvirker indretning og udstyr.',
+    tooltip: 'Måden produkterne vises på påvirker både indretning og hvilket udstyr standen skal bygges med.',
   },
   audioPresentation: {
     title: 'Skal I holde oplæg eller demoer for grupper?',
-    help: 'Jo større og hyppigere gruppepræsentationer, jo mere lydudstyr skal standen bygges med.',
+    highlight: 'Flere og større grupper',
+    rest: 'kræver mere lydudstyr.',
+    tooltip: 'Jo større og hyppigere gruppepræsentationer, jo mere lydudstyr skal standen bygges med.',
   },
   catering: {
     title: 'Skal standen have udstyr til forplejning?',
-    help: 'Hvert stykke udstyr lejes særskilt og skal tilsluttes strøm, vand eller afløb — jo flere I vælger, jo mere teknisk installation kræver standen. I kan vælge flere.',
+    highlight: 'Hvert stykke udstyr',
+    rest: 'kræver egen tilslutning.',
+    tooltip:
+      'Hvert stykke udstyr lejes særskilt og skal tilsluttes strøm, vand eller afløb — jo flere I vælger, jo mere teknisk installation kræver standen. I kan vælge flere.',
   },
   buildHelp: {
     title: 'Klarer I opbygning og nedtagning selv, eller skal vi stå for det?',
-    help: 'Vælger I hjælp, klarer vores team det hele på messen. Vælger I selv, leverer vi standen klar til jeres eget team.',
+    highlight: 'Vælger I hjælp,',
+    rest: 'klarer vores team det hele.',
+    tooltip:
+      'Vælger I hjælp, klarer vores team det hele på messen. Vælger I selv, leverer vi standen klar til jeres eget team.',
   },
 }
 
@@ -385,14 +412,69 @@ function OpenSidesIcon({ sides }: { sides: OpenSides }) {
   )
 }
 
+// Samme lille info-ikon foran undertekst på tværs af alle spørgsmål, så
+// mønsteret er umiddelbart genkendeligt.
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+      <circle cx="10" cy="10" r="8.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="10" cy="6.4" r="1" fill="currentColor" />
+      <line x1="10" y1="9.3" x2="10" y2="14.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+// Kort primærtekst (nøgleord fremhævet i grøn + kort dæmpet resttekst), med
+// et "i"-ikon der kan klikkes for at folde den fulde uddybning ud. Bruges
+// konsekvent af alle spørgsmål via QuestionShell.
+function QuestionHint({ highlight, rest, tooltip }: { highlight: string; rest: string; tooltip: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mt-2 max-w-2xl">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="group flex w-full items-start gap-2 rounded-md py-0.5 text-left outline-none focus-visible:ring-4 focus-visible:ring-wieben-forest-light/25"
+      >
+        <span className="mt-0.5 shrink-0 text-wieben-forest-light">
+          <InfoIcon />
+        </span>
+        <span className="text-[15px] leading-relaxed">
+          <span className="font-semibold text-wieben-forest-light">{highlight}</span>{' '}
+          <span className="text-wieben-forest/55">{rest}</span>
+          <span className="ml-1.5 text-xs font-medium text-wieben-forest/35 underline decoration-dotted underline-offset-2 group-hover:text-wieben-forest/60">
+            {open ? 'skjul' : 'læs mere'}
+          </span>
+        </span>
+      </button>
+      <div
+        className="overflow-hidden transition-[max-height,opacity]"
+        style={{
+          maxHeight: open ? '160px' : '0px',
+          opacity: open ? 1 : 0,
+          transitionDuration: '300ms',
+          transitionTimingFunction: EASE_PREMIUM,
+        }}
+      >
+        <p className="mt-1.5 pl-6 text-sm leading-relaxed text-wieben-forest/60">{tooltip}</p>
+      </div>
+    </div>
+  )
+}
+
 function QuestionShell({
   title,
-  helpText,
+  highlight,
+  rest,
+  tooltip,
   direction,
   children,
 }: {
   title: string
-  helpText: string
+  highlight: string
+  rest: string
+  tooltip: string
   direction: Direction
   children: React.ReactNode
 }) {
@@ -409,7 +491,7 @@ function QuestionShell({
       <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-bold text-wieben-forest outline-none sm:text-3xl">
         {title}
       </h2>
-      <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-wieben-forest/70">{helpText}</p>
+      <QuestionHint highlight={highlight} rest={rest} tooltip={tooltip} />
       <div className="mt-8">{children}</div>
     </div>
   )
@@ -518,13 +600,16 @@ function CheckboxCards({
 
 // Rent visuel — selve klikket/tastaturhåndteringen sidder på hele kortet i
 // UpsellToggle, så hit-target er hele rækken og ikke kun den lille kontakt.
+// checked === true er den ENESTE kilde til grøn/aktiv styling — både kortets
+// kant/baggrund, ikon-badge og selve kontakten læser samme boolean, så de
+// aldrig kan komme ud af sync med hinanden.
 function ToggleSwitch({ checked }: { checked: boolean }) {
   return (
     <span
       aria-hidden="true"
       style={{ transitionTimingFunction: EASE_PREMIUM }}
       className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${
-        checked ? 'bg-wieben-forest-light' : 'bg-wieben-forest/15'
+        checked ? 'bg-wieben-forest-light' : 'bg-gray-300'
       }`}
     >
       <span
@@ -535,12 +620,61 @@ function ToggleSwitch({ checked }: { checked: boolean }) {
   )
 }
 
+function ShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+      <path d="M12 3l7 3v5c0 4.5-3 8.2-7 9.5-4-1.3-7-5-7-9.5V6l7-3z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function ArchiveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+      <rect x="3.5" y="4.5" width="17" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M5 8.5v9a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-9" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M10 12.5h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CameraIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+      <path
+        d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="13" r="3.4" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  )
+}
+
+function UpsellIconBadge({ checked, children }: { checked: boolean; children: React.ReactNode }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{ transitionTimingFunction: EASE_PREMIUM }}
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 ${
+        checked ? 'bg-wieben-forest-light text-white' : 'bg-wieben-forest/8 text-wieben-forest/45'
+      }`}
+    >
+      {children}
+    </span>
+  )
+}
+
 function UpsellToggle({
+  icon,
   title,
   description,
   checked,
   onToggle,
 }: {
+  icon: React.ReactNode
   title: string
   description: string
   checked: boolean
@@ -552,16 +686,19 @@ function UpsellToggle({
       role="switch"
       aria-checked={checked}
       onClick={onToggle}
-      style={{ transitionDuration: '180ms', transitionTimingFunction: EASE_PREMIUM }}
-      className={`flex w-full items-start justify-between gap-4 rounded-xl border-2 p-5 text-left outline-none transition-[border-color,background-color,box-shadow] focus-visible:ring-4 focus-visible:ring-wieben-forest-light/25 ${
+      style={{ transitionDuration: '200ms', transitionTimingFunction: EASE_PREMIUM }}
+      className={`flex w-full items-start justify-between gap-4 rounded-2xl border-2 p-5 text-left outline-none transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-0.5 focus-visible:ring-4 focus-visible:ring-wieben-forest-light/25 ${
         checked
-          ? 'border-wieben-forest-light bg-wieben-mint-light'
-          : 'border-wieben-forest/10 bg-white hover:border-wieben-forest-light/40'
+          ? 'border-wieben-forest-light bg-wieben-mint-light shadow-[0_10px_28px_-10px_rgba(10,61,46,0.3)]'
+          : 'border-gray-200 bg-white shadow-sm hover:border-wieben-forest-light/30 hover:shadow-[0_10px_24px_-10px_rgba(10,61,46,0.15)]'
       }`}
     >
-      <div>
-        <p className="font-semibold text-wieben-forest">{title}</p>
-        <p className="mt-1 text-sm leading-relaxed text-wieben-forest/70">{description}</p>
+      <div className="flex items-start gap-4">
+        <UpsellIconBadge checked={checked}>{icon}</UpsellIconBadge>
+        <div>
+          <p className="font-semibold text-wieben-forest">{title}</p>
+          <p className="mt-1 text-sm leading-relaxed text-wieben-forest/70">{description}</p>
+        </div>
       </div>
       <ToggleSwitch checked={checked} />
     </button>
@@ -788,7 +925,7 @@ export default function PriceConfigurator() {
         )}
 
         {phase === 'questions' && currentStepId === 'size' && (
-          <QuestionShell direction={direction} title={STEP_META.size.title} helpText={STEP_META.size.help}>
+          <QuestionShell direction={direction} title={STEP_META.size.title} highlight={STEP_META.size.highlight} rest={STEP_META.size.rest} tooltip={STEP_META.size.tooltip}>
             <div className="flex flex-col items-center gap-5">
               <div className="text-4xl font-bold tabular-nums text-wieben-forest">{answers.size} m²</div>
               <DragSlider
@@ -808,7 +945,7 @@ export default function PriceConfigurator() {
         )}
 
         {phase === 'questions' && currentStepId === 'openSides' && (
-          <QuestionShell direction={direction} title={STEP_META.openSides.title} helpText={STEP_META.openSides.help}>
+          <QuestionShell direction={direction} title={STEP_META.openSides.title} highlight={STEP_META.openSides.highlight} rest={STEP_META.openSides.rest} tooltip={STEP_META.openSides.tooltip}>
             <OptionCards
               options={OPEN_SIDES_OPTIONS}
               selected={answers.openSides}
@@ -820,49 +957,49 @@ export default function PriceConfigurator() {
         )}
 
         {phase === 'questions' && currentStepId === 'hangingSign' && (
-          <QuestionShell direction={direction} title={STEP_META.hangingSign.title} helpText={STEP_META.hangingSign.help}>
+          <QuestionShell direction={direction} title={STEP_META.hangingSign.title} highlight={STEP_META.hangingSign.highlight} rest={STEP_META.hangingSign.rest} tooltip={STEP_META.hangingSign.tooltip}>
             <OptionCards options={HANGING_SIGN_OPTIONS} selected={answers.hangingSign} onSelect={(v) => update('hangingSign', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'floor' && (
-          <QuestionShell direction={direction} title={STEP_META.floor.title} helpText={STEP_META.floor.help}>
+          <QuestionShell direction={direction} title={STEP_META.floor.title} highlight={STEP_META.floor.highlight} rest={STEP_META.floor.rest} tooltip={STEP_META.floor.tooltip}>
             <OptionCards options={FLOOR_OPTIONS} selected={answers.floor} onSelect={(v) => update('floor', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'floorType' && (
-          <QuestionShell direction={direction} title={STEP_META.floorType.title} helpText={STEP_META.floorType.help}>
+          <QuestionShell direction={direction} title={STEP_META.floorType.title} highlight={STEP_META.floorType.highlight} rest={STEP_META.floorType.rest} tooltip={STEP_META.floorType.tooltip}>
             <OptionCards options={OWN_FLOOR_OPTIONS} selected={answers.ownFloorType} onSelect={(v) => update('ownFloorType', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'productDisplay' && (
-          <QuestionShell direction={direction} title={STEP_META.productDisplay.title} helpText={STEP_META.productDisplay.help}>
+          <QuestionShell direction={direction} title={STEP_META.productDisplay.title} highlight={STEP_META.productDisplay.highlight} rest={STEP_META.productDisplay.rest} tooltip={STEP_META.productDisplay.tooltip}>
             <OptionCards options={PRODUCT_DISPLAY_OPTIONS} selected={answers.productDisplay} onSelect={(v) => update('productDisplay', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'audioPresentation' && (
-          <QuestionShell direction={direction} title={STEP_META.audioPresentation.title} helpText={STEP_META.audioPresentation.help}>
+          <QuestionShell direction={direction} title={STEP_META.audioPresentation.title} highlight={STEP_META.audioPresentation.highlight} rest={STEP_META.audioPresentation.rest} tooltip={STEP_META.audioPresentation.tooltip}>
             <OptionCards options={AUDIO_OPTIONS} selected={answers.audioPresentation} onSelect={(v) => update('audioPresentation', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'catering' && (
-          <QuestionShell direction={direction} title={STEP_META.catering.title} helpText={STEP_META.catering.help}>
+          <QuestionShell direction={direction} title={STEP_META.catering.title} highlight={STEP_META.catering.highlight} rest={STEP_META.catering.rest} tooltip={STEP_META.catering.tooltip}>
             <CheckboxCards options={CATERING_OPTIONS} selected={answers.catering} onToggle={toggleCatering} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'buildHelp' && (
-          <QuestionShell direction={direction} title={STEP_META.buildHelp.title} helpText={STEP_META.buildHelp.help}>
+          <QuestionShell direction={direction} title={STEP_META.buildHelp.title} highlight={STEP_META.buildHelp.highlight} rest={STEP_META.buildHelp.rest} tooltip={STEP_META.buildHelp.tooltip}>
             <OptionCards options={BUILD_HELP_OPTIONS} selected={answers.buildHelp} onSelect={(v) => update('buildHelp', v)} />
             <NavButtons onBack={goBack} onNext={goNext} nextLabel="Se tilvalg" />
           </QuestionShell>
@@ -870,24 +1007,34 @@ export default function PriceConfigurator() {
 
         {phase === 'upsell' && (
           <div className={direction === 'forward' ? 'animate-step-in-forward' : 'animate-step-in-backward'}>
-            <h2 className="text-2xl font-bold text-wieben-forest sm:text-3xl">Nogle finder disse rare at have med</h2>
+            <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-wieben-mint-light px-3 py-1 text-xs font-semibold text-wieben-forest-light">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" aria-hidden="true">
+                <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.4" />
+                <path d="M5 8.2l2 2 4-4.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Kernevalg gennemført
+            </div>
+            <h2 className="text-2xl font-bold text-wieben-forest sm:text-3xl">Valgfrie tilføjelser</h2>
             <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-wieben-forest/70">
               Det her er helt valgfrit og lægges oveni grundprisen — spring roligt over, hvis I ikke har brug for det.
             </p>
-            <div className="mt-8 flex flex-col gap-4">
+            <div className="mt-8 flex flex-col gap-5">
               <UpsellToggle
+                icon={<ShieldIcon />}
                 title="Messeforsikring"
                 description="Sikrer jer mod skader, tyveri eller brand på standen under opstilling og messe. Har I allerede jeres egen dækning, er det helt fint at sige nej."
                 checked={answers.insurance === 'yes'}
                 onToggle={() => update('insurance', answers.insurance === 'yes' ? 'no' : 'yes')}
               />
               <UpsellToggle
+                icon={<ArchiveIcon />}
                 title="Opbevaring mellem messer"
                 description="Vi opbevarer standen på vores lager, til I skal bruge den igen — praktisk hvis den skal ud og stå flere gange."
                 checked={answers.storage === 'yes'}
                 onToggle={() => update('storage', answers.storage === 'yes' ? 'no' : 'yes')}
               />
               <UpsellToggle
+                icon={<CameraIcon />}
                 title="Professionel fotopakke"
                 description="Vi tager billeder af den færdige stand, som I kan bruge i jeres egen markedsføring bagefter."
                 checked={answers.photography === 'yes'}
