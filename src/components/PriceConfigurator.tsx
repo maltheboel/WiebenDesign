@@ -8,16 +8,13 @@ import {
   type CateringItem,
   type ConfiguratorAnswers,
   type FloorChoice,
-  type Internet,
   type OpenSides,
-  type OvernightStorage,
   type OwnFloorType,
   type PriceCategory,
   type ProductDisplay,
   type YesNo,
 } from '../pricing/config'
 import { generateSummaryPdf } from '../pdf/generateSummaryPdf'
-import StandPreview from './StandPreview'
 
 // Simple, DKK-formatteret visning uden decimaler
 const formatKr = (n: number) => `${n.toLocaleString('da-DK')} kr.`
@@ -94,16 +91,14 @@ type CoreStepId =
   | 'floor'
   | 'floorType'
   | 'productDisplay'
-  | 'overnightStorage'
   | 'audioPresentation'
-  | 'internet'
   | 'catering'
   | 'buildHelp'
 
 function getCoreSteps(answers: ConfiguratorAnswers): CoreStepId[] {
   const ids: CoreStepId[] = ['size', 'openSides', 'hangingSign', 'floor']
   if (answers.floor === 'own') ids.push('floorType')
-  ids.push('productDisplay', 'overnightStorage', 'audioPresentation', 'internet', 'catering', 'buildHelp')
+  ids.push('productDisplay', 'audioPresentation', 'catering', 'buildHelp')
   return ids
 }
 
@@ -143,21 +138,10 @@ const PRODUCT_DISPLAY_OPTIONS: OptionCard<ProductDisplay>[] = [
   { value: 'live', title: 'Kører/fungerer live', description: 'Fx en maskine i drift.' },
 ]
 
-const OVERNIGHT_STORAGE_OPTIONS: OptionCard<OvernightStorage>[] = [
-  { value: 'none', title: 'Nej, alt kan stå fremme', description: 'Intet på standen kræver aflåsning om natten.' },
-  { value: 'cabinet', title: 'Ja, et enkelt låsbart skab', description: 'Til fx dyrt udstyr eller elektronik.' },
-  { value: 'room', title: 'Ja, et helt aflåst rum', description: 'Til større mængder værdifulde ting.' },
-]
-
 const AUDIO_OPTIONS: OptionCard<AudioPresentation>[] = [
   { value: 'none', title: 'Nej, kun en-til-en samtaler', description: 'Ingen behov for lyd til grupper.' },
   { value: 'occasional', title: 'Af og til, for mindre grupper', description: 'Håndholdt mikrofon eller højtaler.' },
   { value: 'regular', title: 'Jævnligt, for større grupper', description: 'Fast lydanlæg og evt. scenebelysning.' },
-]
-
-const INTERNET_OPTIONS: OptionCard<Internet>[] = [
-  { value: 'standard', title: 'Nej, hallens wifi er nok', description: 'Den almindelige gratis wifi dækker behovet.' },
-  { value: 'dedicated', title: 'Ja, en dedikeret linje', description: 'Til betalingsterminaler, livestreaming eller tunge demoer.' },
 ]
 
 const BUILD_HELP_OPTIONS: OptionCard<BuildHelp>[] = [
@@ -198,17 +182,9 @@ const STEP_META: Record<CoreStepId, { title: string; help: string }> = {
     title: 'Hvordan skal gæster se jeres produkter?',
     help: 'Måden produkterne vises på påvirker både indretning og hvilket udstyr standen skal bygges med.',
   },
-  overnightStorage: {
-    title: 'Skal noget kunne låses inde om natten?',
-    help: 'Når hallen lukker om aftenen, skal værdifulde ting nogle gange kunne stå aflåst og sikkert.',
-  },
   audioPresentation: {
     title: 'Skal I holde oplæg eller demoer for grupper?',
     help: 'Jo større og hyppigere gruppepræsentationer, jo mere lydudstyr skal standen bygges med.',
-  },
-  internet: {
-    title: 'Skal standen have sin egen internetforbindelse?',
-    help: 'Ud over messehallens gratis wifi — relevant hvis I skal bruge noget der kræver en stabil, dedikeret linje.',
   },
   catering: {
     title: 'Skal standen have udstyr til forplejning?',
@@ -227,9 +203,7 @@ const defaultAnswers: ConfiguratorAnswers = {
   floor: 'standard',
   ownFloorType: 'vinyl',
   productDisplay: 'shelves',
-  overnightStorage: 'none',
   audioPresentation: 'none',
-  internet: 'standard',
   catering: [],
   buildHelp: 'diy',
   insurance: 'no',
@@ -798,27 +772,11 @@ export default function PriceConfigurator() {
   }
 
   const currentStepId = coreSteps[step]
-  // Standskitsen er kun relevant, mens brugeren aktivt bygger sin
-  // konfiguration — opsummeringen har allerede sit eget detaljerede overblik
-  // (donut-diagram + nedbrydning), så preview-panelet fylder ikke der.
-  const showPreview = phase === 'questions' || phase === 'upsell'
 
   return (
-    <section id="konfigurator" className={`mx-auto px-4 py-12 sm:px-6 lg:px-8 ${showPreview ? 'max-w-6xl' : 'max-w-4xl'}`}>
-      {showPreview && <LivePriceTicker low={price.low} high={price.high} />}
-      <div className={showPreview ? 'grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start' : ''}>
-        <div>
-          {showPreview && (
-            <details className="mb-4 rounded-xl border border-wieben-forest/10 bg-white p-4 shadow-sm lg:hidden">
-              <summary className="cursor-pointer text-sm font-semibold text-wieben-forest marker:text-wieben-forest-light">
-                Se jeres stand
-              </summary>
-              <div className="mt-4">
-                <StandPreview answers={answers} />
-              </div>
-            </details>
-          )}
-          <div className="overflow-hidden rounded-2xl border border-wieben-forest/10 bg-white p-6 shadow-sm sm:p-10">
+    <section id="konfigurator" className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+      {(phase === 'questions' || phase === 'upsell') && <LivePriceTicker low={price.low} high={price.high} />}
+      <div className="overflow-hidden rounded-2xl border border-wieben-forest/10 bg-white p-6 shadow-sm sm:p-10">
         {phase === 'questions' && (
           <ProgressBar
             pct={Math.round(((step + 1) / totalSteps) * 100)}
@@ -889,23 +847,9 @@ export default function PriceConfigurator() {
           </QuestionShell>
         )}
 
-        {phase === 'questions' && currentStepId === 'overnightStorage' && (
-          <QuestionShell direction={direction} title={STEP_META.overnightStorage.title} helpText={STEP_META.overnightStorage.help}>
-            <OptionCards options={OVERNIGHT_STORAGE_OPTIONS} selected={answers.overnightStorage} onSelect={(v) => update('overnightStorage', v)} />
-            <NavButtons onBack={goBack} onNext={goNext} />
-          </QuestionShell>
-        )}
-
         {phase === 'questions' && currentStepId === 'audioPresentation' && (
           <QuestionShell direction={direction} title={STEP_META.audioPresentation.title} helpText={STEP_META.audioPresentation.help}>
             <OptionCards options={AUDIO_OPTIONS} selected={answers.audioPresentation} onSelect={(v) => update('audioPresentation', v)} />
-            <NavButtons onBack={goBack} onNext={goNext} />
-          </QuestionShell>
-        )}
-
-        {phase === 'questions' && currentStepId === 'internet' && (
-          <QuestionShell direction={direction} title={STEP_META.internet.title} helpText={STEP_META.internet.help}>
-            <OptionCards options={INTERNET_OPTIONS} selected={answers.internet} onSelect={(v) => update('internet', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
@@ -967,17 +911,6 @@ export default function PriceConfigurator() {
             submitted={submitted}
             onSubmit={handleSubmitContact}
           />
-        )}
-          </div>
-        </div>
-
-        {showPreview && (
-          <div className="hidden lg:sticky lg:top-24 lg:block">
-            <div className="rounded-2xl border border-wieben-forest/10 bg-white p-6 shadow-sm">
-              <p className="mb-4 text-sm font-semibold text-wieben-forest">Jeres stand</p>
-              <StandPreview answers={answers} />
-            </div>
-          </div>
         )}
       </div>
     </section>

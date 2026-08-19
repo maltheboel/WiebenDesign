@@ -24,9 +24,7 @@ export type YesNo = 'yes' | 'no'
 export type FloorChoice = 'standard' | 'own'
 export type OwnFloorType = 'vinyl' | 'wood' | 'raised'
 export type ProductDisplay = 'shelves' | 'cases' | 'hanging' | 'live'
-export type OvernightStorage = 'none' | 'cabinet' | 'room'
 export type AudioPresentation = 'none' | 'occasional' | 'regular'
-export type Internet = 'standard' | 'dedicated'
 export type CateringItem = 'coffee' | 'fridge' | 'wine_cooler' | 'sink' | 'bar'
 export type BuildHelp = 'help' | 'diy'
 
@@ -61,27 +59,14 @@ export const PRICING_CONFIG = {
     live: 3500,
   } satisfies Record<ProductDisplay, number>,
 
-  // 6) Natlig opbevaring — fast tillæg
-  overnightStorageFee: {
-    none: 0,
-    cabinet: 1200,
-    room: 4500,
-  } satisfies Record<OvernightStorage, number>,
-
-  // 7) Lyd og præsentation — fast tillæg
+  // 6) Lyd og præsentation — fast tillæg
   audioPresentationFee: {
     none: 0,
     occasional: 1500,
     regular: 4200,
   } satisfies Record<AudioPresentation, number>,
 
-  // 8) Internetforbindelse — fast tillæg for dedikeret linje
-  internetFee: {
-    standard: 0,
-    dedicated: 2200,
-  } satisfies Record<Internet, number>,
-
-  // 9) Udstyr til forplejning — fast tillæg pr. valgt stykke udstyr
+  // 7) Udstyr til forplejning — fast tillæg pr. valgt stykke udstyr
   //    (inkl. tilslutning til strøm/vand/afløb, se OBS ovenfor)
   cateringItemFee: {
     coffee: 900,
@@ -91,13 +76,13 @@ export const PRICING_CONFIG = {
     bar: 3200,
   } satisfies Record<CateringItem, number>,
 
-  // 10) Opbygning/nedtagning — fast pris pr. m² hvis Wieben Design skal stå for det
+  // 8) Opbygning/nedtagning — fast pris pr. m² hvis Wieben Design skal stå for det
   buildHelpPricePerSqm: {
     help: 450,
     diy: 0,
   } satisfies Record<BuildHelp, number>,
 
-  // 11-13) Mersalg — faste tillæg for valgfrie tilkøb
+  // 9-11) Mersalg — faste tillæg for valgfrie tilkøb
   insuranceFee: 1400,
   storageFee: 3800,
   photographyFee: 2600,
@@ -119,9 +104,7 @@ export interface ConfiguratorAnswers {
   floor: FloorChoice
   ownFloorType: OwnFloorType // kun relevant når floor === 'own'
   productDisplay: ProductDisplay
-  overnightStorage: OvernightStorage
   audioPresentation: AudioPresentation
-  internet: Internet
   catering: CateringItem[]
   buildHelp: BuildHelp
   // Mersalg
@@ -137,8 +120,8 @@ export type PriceCategory = 'construction' | 'layout' | 'tech' | 'catering' | 'u
 
 export const CATEGORY_META: Record<PriceCategory, { label: string; color: string }> = {
   construction: { label: 'Konstruktion', color: '#0a3d2e' }, // størrelse, åbne sider, gulv, hængeskilt, opbygning
-  layout: { label: 'Indretning', color: '#1d5c46' }, // produktfremvisning, natlig opbevaring
-  tech: { label: 'Teknik', color: '#2f7d5f' }, // lyd/præsentation, internet
+  layout: { label: 'Indretning', color: '#1d5c46' }, // produktfremvisning
+  tech: { label: 'Teknik', color: '#2f7d5f' }, // lyd/præsentation
   catering: { label: 'Forplejning', color: '#6fae86' }, // kaffe, køl, håndvask, bar m.m.
   upsell: { label: 'Tilvalg', color: '#b7e4c7' }, // forsikring, opbevaring mellem messer, foto — samme navn som opsummeringens "Tilvalg"-sektion
 }
@@ -250,34 +233,12 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
     })
   }
 
-  const storageAmount = c.overnightStorageFee[a.overnightStorage]
-  if (storageAmount > 0) {
-    lines.push({
-      label: a.overnightStorage === 'room' ? 'Aflåst rum til natten' : 'Låsbart skab til natten',
-      amount: formatDkk(storageAmount),
-      description: 'Sikker opbevaring af værdigenstande, når hallen er lukket.',
-      kind: 'core',
-      category: 'layout',
-    })
-  }
-
   const audioAmount = c.audioPresentationFee[a.audioPresentation]
   if (audioAmount > 0) {
     lines.push({
       label: a.audioPresentation === 'regular' ? 'Fast lydanlæg og scenebelysning' : 'Håndholdt mikrofon/højtaler',
       amount: formatDkk(audioAmount),
       description: 'Udstyr til oplæg og demoer for grupper på standen.',
-      kind: 'core',
-      category: 'tech',
-    })
-  }
-
-  const internetAmount = c.internetFee[a.internet]
-  if (internetAmount > 0) {
-    lines.push({
-      label: 'Dedikeret internetlinje',
-      amount: formatDkk(internetAmount),
-      description: 'Egen forbindelse ud over hallens gratis wifi — til betaling, livestream eller tunge demoer.',
       kind: 'core',
       category: 'tech',
     })
