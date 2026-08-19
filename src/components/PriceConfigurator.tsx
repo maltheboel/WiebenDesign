@@ -562,10 +562,17 @@ function CheckboxCards({
   selected: CateringItem[]
   onToggle: (value: CateringItem) => void
 }) {
+  // Når antallet af muligheder er ulige, ender det sidste kort alene i sidste
+  // række af 2-kolonne-gitteret og bliver kun halvt så bredt som resten, med
+  // et akavet tomt hul ved siden af — så det sidste kort spænder over begge
+  // kolonner i stedet.
+  const isLoneLastItem = options.length % 2 === 1
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {options.map((opt) => {
+      {options.map((opt, i) => {
         const isChecked = selected.includes(opt.value)
+        const spanFull = isLoneLastItem && i === options.length - 1
         return (
           <button
             key={opt.value}
@@ -575,6 +582,8 @@ function CheckboxCards({
             onClick={() => onToggle(opt.value)}
             style={{ transitionDuration: '180ms', transitionTimingFunction: EASE_PREMIUM }}
             className={`rounded-xl border-2 p-5 text-left transition-[border-color,background-color,box-shadow,transform] outline-none focus-visible:ring-4 focus-visible:ring-wieben-forest-light/25 active:scale-[0.98] ${
+              spanFull ? 'sm:col-span-2' : ''
+            } ${
               isChecked
                 ? 'border-wieben-forest-light bg-wieben-mint-light shadow-[0_4px_16px_-4px_rgba(10,61,46,0.25)]'
                 : 'border-wieben-forest/10 bg-white hover:-translate-y-0.5 hover:border-wieben-forest-light/40 hover:shadow-[0_8px_20px_-6px_rgba(10,61,46,0.18)]'
