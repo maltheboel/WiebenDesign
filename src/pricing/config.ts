@@ -102,7 +102,7 @@ export interface ConfiguratorAnswers {
   openSides: OpenSides
   hangingSign: YesNo
   floor: FloorChoice
-  ownFloorType: OwnFloorType // kun relevant når floor === 'own'
+  ownFloorType: OwnFloorType | null // kun relevant/sat når floor === 'own'
   productDisplay: ProductDisplay
   audioPresentation: AudioPresentation
   catering: CateringItem[]
@@ -206,7 +206,7 @@ export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
     })
   }
 
-  if (a.floor === 'own') {
+  if (a.floor === 'own' && a.ownFloorType) {
     const floorAmount = a.size * c.ownFloorPricePerSqm[a.ownFloorType]
     lines.push({
       label: ownFloorLabel[a.ownFloorType],

@@ -24,68 +24,64 @@ body {
 
 /* Mikroanimationer for trin-skift i priskonfiguratoren. Retningen (forward/
    backward) fortæller brugeren visuelt om de bevæger sig frem eller tilbage
-   i flowet. Et rigtigt "kort-skift": det nuværende spørgsmål glider/skalerer
-   ud (step-out), og først derefter glider/skalerer det næste ind (step-in) —
-   se `transitioning`-state i PriceConfigurator.tsx, som sekvenserer de to. */
+   i flowet. Et rigtigt "kort-skift": det nuværende spørgsmål glider hurtigt
+   ud (step-out, lineær ease-in — føles responsivt), og først derefter
+   glider det næste ind med et let "spring"-overshoot (step-in) — se
+   `transitioning`-state i PriceConfigurator.tsx, som sekvenserer de to.
+   Bevidst UDEN blur — et blur-filter på en transform så sløvt/udvasket ud i
+   praksis i stedet for "premium", så det er droppet til fordel for en
+   skarpere, mere håndgribelig bevægelse. */
 @keyframes step-in-forward {
   from {
     opacity: 0;
-    transform: translateX(22px) scale(0.97);
-    filter: blur(3px);
+    transform: translateX(44px) scale(0.95);
   }
   to {
     opacity: 1;
     transform: translateX(0) scale(1);
-    filter: blur(0);
   }
 }
 @keyframes step-in-backward {
   from {
     opacity: 0;
-    transform: translateX(-22px) scale(0.97);
-    filter: blur(3px);
+    transform: translateX(-44px) scale(0.95);
   }
   to {
     opacity: 1;
     transform: translateX(0) scale(1);
-    filter: blur(0);
   }
 }
 @keyframes step-out-forward {
   from {
     opacity: 1;
     transform: translateX(0) scale(1);
-    filter: blur(0);
   }
   to {
     opacity: 0;
-    transform: translateX(-26px) scale(0.96);
-    filter: blur(3px);
+    transform: translateX(-32px) scale(0.97);
   }
 }
 @keyframes step-out-backward {
   from {
     opacity: 1;
     transform: translateX(0) scale(1);
-    filter: blur(0);
   }
   to {
     opacity: 0;
-    transform: translateX(26px) scale(0.96);
-    filter: blur(3px);
+    transform: translateX(32px) scale(0.97);
   }
 }
 .animate-step-in-forward {
-  animation: step-in-forward 340ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: step-in-forward 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .animate-step-in-backward {
-  animation: step-in-backward 340ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: step-in-backward 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .animate-step-out-forward {
-  animation: step-out-forward 190ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: step-out-forward 140ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 .animate-step-out-backward {
-  animation: step-out-backward 190ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: step-out-backward 140ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

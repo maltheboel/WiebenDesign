@@ -80,26 +80,21 @@ function LivePriceTicker({ low, high }: { low: number; high: number }) {
   )
 }
 
-// Rækkefølgen af kernespørgsmål. "floorType" er et betinget opfølgnings-
-// spørgsmål, der kun indgår når brugeren har valgt "eget gulv" — listen
-// genberegnes derfor løbende ud fra de aktuelle svar, så step-indekset altid
-// peger på det rigtige spørgsmål, uanset hvornår brugeren ændrer sit svar.
+// Rækkefølgen af kernespørgsmål. Gulvtype er IKKE længere sit eget trin —
+// når "Eget gulv" vælges på 'floor'-trinnet, folder gulvtype-valget ud som
+// et inline panel på samme skærm i stedet, så listen altid har samme længde.
 type CoreStepId =
   | 'size'
   | 'openSides'
   | 'hangingSign'
   | 'floor'
-  | 'floorType'
   | 'productDisplay'
   | 'audioPresentation'
   | 'catering'
   | 'buildHelp'
 
-function getCoreSteps(answers: ConfiguratorAnswers): CoreStepId[] {
-  const ids: CoreStepId[] = ['size', 'openSides', 'hangingSign', 'floor']
-  if (answers.floor === 'own') ids.push('floorType')
-  ids.push('productDisplay', 'audioPresentation', 'catering', 'buildHelp')
-  return ids
+function getCoreSteps(_answers: ConfiguratorAnswers): CoreStepId[] {
+  return ['size', 'openSides', 'hangingSign', 'floor', 'productDisplay', 'audioPresentation', 'catering', 'buildHelp']
 }
 
 type OptionCard<T extends string | number> = {
@@ -189,12 +184,6 @@ const STEP_META: Record<CoreStepId, { title: string; highlight: string; rest: st
     rest: 'er allerede inkluderet i lejen.',
     tooltip: 'Hallens eget gulv er inkluderet i lejen. Vælger I jeres eget, kan I style det præcis som I vil.',
   },
-  floorType: {
-    title: 'Hvilken type gulv skal I have?',
-    highlight: 'Pris, udtryk og lægge-tid',
-    rest: 'adskiller de tre typer.',
-    tooltip: 'De tre typer adskiller sig på pris, udtryk og hvor lang tid de tager at lægge.',
-  },
   productDisplay: {
     title: 'Hvordan skal gæster se jeres produkter?',
     highlight: 'Måden produkterne vises på',
@@ -228,7 +217,7 @@ const defaultAnswers: ConfiguratorAnswers = {
   openSides: 1,
   hangingSign: 'no',
   floor: 'standard',
-  ownFloorType: 'vinyl',
+  ownFloorType: null,
   productDisplay: 'shelves',
   audioPresentation: 'none',
   catering: [],
@@ -560,6 +549,76 @@ function OptionCards<T extends string | number>({
   )
 }
 
+// Gulvtype-valget (Vinyl/Træ/Hævet) er ikke længere sit eget trin — det
+// folder i stedet ud som et inline panel lige under "Eget gulv"-kortet, når
+// det kort vælges. Samme mint/grøn accent og bløde overgang som resten af
+// konfiguratoren, i en let indrykket boks, så panelet føles som en naturlig
+// udvidelse af kortet ovenover i stedet for en pludselig, adskilt boks.
+function FloorTypePanel({
+  open,
+  selected,
+  onSelect,
+}: {
+  open: boolean
+  selected: OwnFloorType | null
+  onSelect: (value: OwnFloorType) => void
+}) {
+  return (
+    <div
+      className="overflow-hidden transition-[max-height,opacity]"
+      style={{
+        maxHeight: open ? '480px' : '0px',
+        opacity: open ? 1 : 0,
+        transitionDuration: '300ms',
+        transitionTimingFunction: EASE_PREMIUM,
+      }}
+    >
+      <div className="mt-3 rounded-xl border border-wieben-forest-light/25 bg-wieben-mint-light/50 p-4">
+        <p className="mb-3 text-sm font-semibold text-wieben-forest">Vælg gulvtype</p>
+        <div className="flex flex-col gap-2">
+          {OWN_FLOOR_OPTIONS.map((opt) => {
+            const isSelected = opt.value === selected
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() => onSelect(opt.value)}
+                style={{ transitionDuration: '160ms', transitionTimingFunction: EASE_PREMIUM }}
+                className={`flex items-start gap-3 rounded-lg border-2 bg-white p-3 text-left transition-[border-color,box-shadow] outline-none focus-visible:ring-4 focus-visible:ring-wieben-forest-light/25 ${
+                  isSelected
+                    ? 'border-wieben-forest-light shadow-[0_2px_10px_-4px_rgba(10,61,46,0.25)]'
+                    : 'border-wieben-forest/10 hover:border-wieben-forest-light/40'
+                }`}
+              >
+                <span
+                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                    isSelected ? 'border-wieben-forest-light' : 'border-wieben-forest/25'
+                  }`}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full bg-wieben-forest-light"
+                    style={{
+                      opacity: isSelected ? 1 : 0,
+                      transform: isSelected ? 'scale(1)' : 'scale(0.4)',
+                      transition: `opacity 150ms ${EASE_PREMIUM}, transform 150ms ${EASE_PREMIUM}`,
+                    }}
+                  />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-wieben-forest">{opt.title}</span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-wieben-forest/70">{opt.description}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Flervalgs-tjekliste (afkrydsningsfelter, ikke enkeltvalgs-knapper) —
 // firkantet indikator i stedet for den runde fra OptionCards, så det visuelt
 // er tydeligt at flere kan vælges på samme tid.
@@ -729,11 +788,13 @@ function NavButtons({
   onNext,
   nextLabel = 'Næste',
   backDisabled = false,
+  nextDisabled = false,
 }: {
   onBack: () => void
   onNext: () => void
   nextLabel?: string
   backDisabled?: boolean
+  nextDisabled?: boolean
 }) {
   const [pulsing, setPulsing] = useState(false)
 
@@ -761,8 +822,9 @@ function NavButtons({
       <button
         type="button"
         onClick={handleNext}
+        disabled={nextDisabled}
         style={{ transitionDuration: '180ms', transitionTimingFunction: EASE_PREMIUM }}
-        className={`rounded-md bg-wieben-forest-light px-6 py-3 text-[15px] font-semibold text-white shadow-sm outline-none transition-[background-color,box-shadow,transform] hover:-translate-y-0.5 hover:bg-wieben-forest hover:shadow-md focus-visible:ring-4 focus-visible:ring-wieben-forest-light/30 active:translate-y-0 active:scale-[0.98] ${
+        className={`rounded-md bg-wieben-forest-light px-6 py-3 text-[15px] font-semibold text-white shadow-sm outline-none transition-[background-color,box-shadow,transform] hover:-translate-y-0.5 hover:bg-wieben-forest hover:shadow-md focus-visible:ring-4 focus-visible:ring-wieben-forest-light/30 active:translate-y-0 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${
           pulsing ? 'animate-btn-pulse' : ''
         }`}
       >
@@ -902,10 +964,16 @@ export default function PriceConfigurator() {
       catering: prev.catering.includes(item) ? prev.catering.filter((i) => i !== item) : [...prev.catering, item],
     }))
 
+  // Vælger man "Hallens standardgulv" igen, skal et evt. allerede valgt
+  // gulvtype-valg fra det inline panel nulstilles, så det ikke "hænger ved"
+  // i baggrunden, hvis brugeren skifter mening frem og tilbage.
+  const selectFloor = (choice: FloorChoice) =>
+    setAnswers((prev) => ({ ...prev, floor: choice, ownFloorType: choice === 'standard' ? null : prev.ownFloorType }))
+
   // STEP_TRANSITION_MS skal matche varigheden af .animate-step-out-* i
   // index.css, så det aktuelle trin når at glide/skalere helt ud, før det
   // næste trin monteres og glider ind.
-  const STEP_TRANSITION_MS = 190
+  const STEP_TRANSITION_MS = 140
 
   const advanceNext = () => {
     if (phase === 'questions') {
@@ -1039,15 +1107,9 @@ export default function PriceConfigurator() {
 
         {phase === 'questions' && currentStepId === 'floor' && (
           <QuestionShell direction={direction} title={STEP_META.floor.title} highlight={STEP_META.floor.highlight} rest={STEP_META.floor.rest} tooltip={STEP_META.floor.tooltip} transitioning={transitioning}>
-            <OptionCards options={FLOOR_OPTIONS} selected={answers.floor} onSelect={(v) => update('floor', v)} />
-            <NavButtons onBack={goBack} onNext={goNext} />
-          </QuestionShell>
-        )}
-
-        {phase === 'questions' && currentStepId === 'floorType' && (
-          <QuestionShell direction={direction} title={STEP_META.floorType.title} highlight={STEP_META.floorType.highlight} rest={STEP_META.floorType.rest} tooltip={STEP_META.floorType.tooltip} transitioning={transitioning}>
-            <OptionCards options={OWN_FLOOR_OPTIONS} selected={answers.ownFloorType} onSelect={(v) => update('ownFloorType', v)} />
-            <NavButtons onBack={goBack} onNext={goNext} />
+            <OptionCards options={FLOOR_OPTIONS} selected={answers.floor} onSelect={selectFloor} />
+            <FloorTypePanel open={answers.floor === 'own'} selected={answers.ownFloorType} onSelect={(v) => update('ownFloorType', v)} />
+            <NavButtons onBack={goBack} onNext={goNext} nextDisabled={answers.floor === 'own' && !answers.ownFloorType} />
           </QuestionShell>
         )}
 
@@ -1197,7 +1259,8 @@ function Summary({
     headingRef.current?.focus({ preventScroll: true })
   }, [])
 
-  const floorPhrase = answers.floor === 'standard' ? 'hallens standardgulv' : ownFloorSentenceLabel[answers.ownFloorType]
+  const floorPhrase =
+    answers.floor === 'standard' ? 'hallens standardgulv' : ownFloorSentenceLabel[answers.ownFloorType ?? 'vinyl']
   const summarySentence = `I får en ${answers.size} m² ${openSidesSentenceLabel[answers.openSides]} med ${floorPhrase}, hvor gæster ser jeres produkter via ${productDisplaySentenceLabel[answers.productDisplay]}, ${buildHelpSentenceLabel[answers.buildHelp]}.`
 
   const coreLines = price.lines.filter((l) => l.kind === 'core')
