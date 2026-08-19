@@ -463,12 +463,21 @@ function QuestionHint({ highlight, rest, tooltip }: { highlight: string; rest: s
   )
 }
 
+// Vælger exit- (step-out) eller entre-animationen (step-in) alt efter om det
+// aktuelle trin er ved at glide ud (transitioning === true, lige efter et
+// Næste/Tilbage-klik) eller lige er monteret og skal glide ind.
+function stepAnimClass(direction: Direction, transitioning: boolean) {
+  if (transitioning) return direction === 'forward' ? 'animate-step-out-forward' : 'animate-step-out-backward'
+  return direction === 'forward' ? 'animate-step-in-forward' : 'animate-step-in-backward'
+}
+
 function QuestionShell({
   title,
   highlight,
   rest,
   tooltip,
   direction,
+  transitioning,
   children,
 }: {
   title: string
@@ -476,6 +485,7 @@ function QuestionShell({
   rest: string
   tooltip: string
   direction: Direction
+  transitioning: boolean
   children: React.ReactNode
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -487,7 +497,7 @@ function QuestionShell({
   }, [])
 
   return (
-    <div className={direction === 'forward' ? 'animate-step-in-forward' : 'animate-step-in-backward'}>
+    <div className={stepAnimClass(direction, transitioning)}>
       <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-bold text-wieben-forest outline-none sm:text-3xl">
         {title}
       </h2>
@@ -725,6 +735,19 @@ function NavButtons({
   nextLabel?: string
   backDisabled?: boolean
 }) {
+  const [pulsing, setPulsing] = useState(false)
+
+  // En kort "puls" (skalering + udadgående glow-ring) i det øjeblik man
+  // klikker Næste, som en håndgribelig bekræftelse på klikket i det korte
+  // øjeblik inden selve trin-skiftet spiller.
+  const handleNext = () => {
+    if (!prefersReducedMotion()) {
+      setPulsing(true)
+      window.setTimeout(() => setPulsing(false), 380)
+    }
+    onNext()
+  }
+
   return (
     <div className="mt-10 flex items-center justify-between">
       <button
@@ -737,9 +760,11 @@ function NavButtons({
       </button>
       <button
         type="button"
-        onClick={onNext}
+        onClick={handleNext}
         style={{ transitionDuration: '180ms', transitionTimingFunction: EASE_PREMIUM }}
-        className="rounded-md bg-wieben-forest-light px-6 py-3 text-[15px] font-semibold text-white shadow-sm outline-none transition-[background-color,box-shadow,transform] hover:-translate-y-0.5 hover:bg-wieben-forest hover:shadow-md focus-visible:ring-4 focus-visible:ring-wieben-forest-light/30 active:translate-y-0 active:scale-[0.98]"
+        className={`rounded-md bg-wieben-forest-light px-6 py-3 text-[15px] font-semibold text-white shadow-sm outline-none transition-[background-color,box-shadow,transform] hover:-translate-y-0.5 hover:bg-wieben-forest hover:shadow-md focus-visible:ring-4 focus-visible:ring-wieben-forest-light/30 active:translate-y-0 active:scale-[0.98] ${
+          pulsing ? 'animate-btn-pulse' : ''
+        }`}
       >
         {nextLabel}
       </button>
@@ -860,6 +885,10 @@ export default function PriceConfigurator() {
   const [answers, setAnswers] = useState<ConfiguratorAnswers>(defaultAnswers)
   const [submitted, setSubmitted] = useState(false)
   const [contact, setContact] = useState({ name: '', email: '', phone: '' })
+  // Kort "kort-skift": true mens det AKTUELLE trin spiller sin exit-animation,
+  // lige efter Næste/Tilbage er klikket, men før selve trin/fase-state
+  // opdateres. Se stepAnimClass() og goNext/goBack herunder.
+  const [transitioning, setTransitioning] = useState(false)
 
   const coreSteps = getCoreSteps(answers)
   const totalSteps = coreSteps.length + 1 // +1 = tilvalgs-skærmen
@@ -873,8 +902,12 @@ export default function PriceConfigurator() {
       catering: prev.catering.includes(item) ? prev.catering.filter((i) => i !== item) : [...prev.catering, item],
     }))
 
-  const goNext = () => {
-    setDirection('forward')
+  // STEP_TRANSITION_MS skal matche varigheden af .animate-step-out-* i
+  // index.css, så det aktuelle trin når at glide/skalere helt ud, før det
+  // næste trin monteres og glider ind.
+  const STEP_TRANSITION_MS = 190
+
+  const advanceNext = () => {
     if (phase === 'questions') {
       if (step >= coreSteps.length - 1) {
         setPhase('upsell')
@@ -888,8 +921,7 @@ export default function PriceConfigurator() {
     }
   }
 
-  const goBack = () => {
-    setDirection('backward')
+  const advanceBack = () => {
     if (phase === 'summary') {
       setPhase('upsell')
     } else if (phase === 'upsell') {
@@ -898,6 +930,39 @@ export default function PriceConfigurator() {
     } else if (step > 0) {
       setStep((s) => s - 1)
     }
+  }
+
+  // Et "kort-skift": det synlige trin spiller først sin exit-animation
+  // (step-out), og kun derefter opdateres den faktiske step/phase-state, så
+  // det næste trin monteres og spiller sin entre-animation (step-in). Uden
+  // denne forsinkelse ville det gamle indhold bare forsvinde momentant, i
+  // stedet for at glide ud, når man klikker Næste/Tilbage.
+  const goNext = () => {
+    if (transitioning) return
+    setDirection('forward')
+    if (prefersReducedMotion()) {
+      advanceNext()
+      return
+    }
+    setTransitioning(true)
+    window.setTimeout(() => {
+      advanceNext()
+      setTransitioning(false)
+    }, STEP_TRANSITION_MS)
+  }
+
+  const goBack = () => {
+    if (transitioning) return
+    setDirection('backward')
+    if (prefersReducedMotion()) {
+      advanceBack()
+      return
+    }
+    setTransitioning(true)
+    window.setTimeout(() => {
+      advanceBack()
+      setTransitioning(false)
+    }, STEP_TRANSITION_MS)
   }
 
   // "success"-fasen er transitorisk og går automatisk videre til opsummeringen.
@@ -934,7 +999,7 @@ export default function PriceConfigurator() {
         )}
 
         {phase === 'questions' && currentStepId === 'size' && (
-          <QuestionShell direction={direction} title={STEP_META.size.title} highlight={STEP_META.size.highlight} rest={STEP_META.size.rest} tooltip={STEP_META.size.tooltip}>
+          <QuestionShell direction={direction} title={STEP_META.size.title} highlight={STEP_META.size.highlight} rest={STEP_META.size.rest} tooltip={STEP_META.size.tooltip} transitioning={transitioning}>
             <div className="flex flex-col items-center gap-5">
               <div className="text-4xl font-bold tabular-nums text-wieben-forest">{answers.size} m²</div>
               <DragSlider
@@ -954,7 +1019,7 @@ export default function PriceConfigurator() {
         )}
 
         {phase === 'questions' && currentStepId === 'openSides' && (
-          <QuestionShell direction={direction} title={STEP_META.openSides.title} highlight={STEP_META.openSides.highlight} rest={STEP_META.openSides.rest} tooltip={STEP_META.openSides.tooltip}>
+          <QuestionShell direction={direction} title={STEP_META.openSides.title} highlight={STEP_META.openSides.highlight} rest={STEP_META.openSides.rest} tooltip={STEP_META.openSides.tooltip} transitioning={transitioning}>
             <OptionCards
               options={OPEN_SIDES_OPTIONS}
               selected={answers.openSides}
@@ -966,56 +1031,56 @@ export default function PriceConfigurator() {
         )}
 
         {phase === 'questions' && currentStepId === 'hangingSign' && (
-          <QuestionShell direction={direction} title={STEP_META.hangingSign.title} highlight={STEP_META.hangingSign.highlight} rest={STEP_META.hangingSign.rest} tooltip={STEP_META.hangingSign.tooltip}>
+          <QuestionShell direction={direction} title={STEP_META.hangingSign.title} highlight={STEP_META.hangingSign.highlight} rest={STEP_META.hangingSign.rest} tooltip={STEP_META.hangingSign.tooltip} transitioning={transitioning}>
             <OptionCards options={HANGING_SIGN_OPTIONS} selected={answers.hangingSign} onSelect={(v) => update('hangingSign', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'floor' && (
-          <QuestionShell direction={direction} title={STEP_META.floor.title} highlight={STEP_META.floor.highlight} rest={STEP_META.floor.rest} tooltip={STEP_META.floor.tooltip}>
+          <QuestionShell direction={direction} title={STEP_META.floor.title} highlight={STEP_META.floor.highlight} rest={STEP_META.floor.rest} tooltip={STEP_META.floor.tooltip} transitioning={transitioning}>
             <OptionCards options={FLOOR_OPTIONS} selected={answers.floor} onSelect={(v) => update('floor', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'floorType' && (
-          <QuestionShell direction={direction} title={STEP_META.floorType.title} highlight={STEP_META.floorType.highlight} rest={STEP_META.floorType.rest} tooltip={STEP_META.floorType.tooltip}>
+          <QuestionShell direction={direction} title={STEP_META.floorType.title} highlight={STEP_META.floorType.highlight} rest={STEP_META.floorType.rest} tooltip={STEP_META.floorType.tooltip} transitioning={transitioning}>
             <OptionCards options={OWN_FLOOR_OPTIONS} selected={answers.ownFloorType} onSelect={(v) => update('ownFloorType', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'productDisplay' && (
-          <QuestionShell direction={direction} title={STEP_META.productDisplay.title} highlight={STEP_META.productDisplay.highlight} rest={STEP_META.productDisplay.rest} tooltip={STEP_META.productDisplay.tooltip}>
+          <QuestionShell direction={direction} title={STEP_META.productDisplay.title} highlight={STEP_META.productDisplay.highlight} rest={STEP_META.productDisplay.rest} tooltip={STEP_META.productDisplay.tooltip} transitioning={transitioning}>
             <OptionCards options={PRODUCT_DISPLAY_OPTIONS} selected={answers.productDisplay} onSelect={(v) => update('productDisplay', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'audioPresentation' && (
-          <QuestionShell direction={direction} title={STEP_META.audioPresentation.title} highlight={STEP_META.audioPresentation.highlight} rest={STEP_META.audioPresentation.rest} tooltip={STEP_META.audioPresentation.tooltip}>
+          <QuestionShell direction={direction} title={STEP_META.audioPresentation.title} highlight={STEP_META.audioPresentation.highlight} rest={STEP_META.audioPresentation.rest} tooltip={STEP_META.audioPresentation.tooltip} transitioning={transitioning}>
             <OptionCards options={AUDIO_OPTIONS} selected={answers.audioPresentation} onSelect={(v) => update('audioPresentation', v)} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'catering' && (
-          <QuestionShell direction={direction} title={STEP_META.catering.title} highlight={STEP_META.catering.highlight} rest={STEP_META.catering.rest} tooltip={STEP_META.catering.tooltip}>
+          <QuestionShell direction={direction} title={STEP_META.catering.title} highlight={STEP_META.catering.highlight} rest={STEP_META.catering.rest} tooltip={STEP_META.catering.tooltip} transitioning={transitioning}>
             <CheckboxCards options={CATERING_OPTIONS} selected={answers.catering} onToggle={toggleCatering} />
             <NavButtons onBack={goBack} onNext={goNext} />
           </QuestionShell>
         )}
 
         {phase === 'questions' && currentStepId === 'buildHelp' && (
-          <QuestionShell direction={direction} title={STEP_META.buildHelp.title} highlight={STEP_META.buildHelp.highlight} rest={STEP_META.buildHelp.rest} tooltip={STEP_META.buildHelp.tooltip}>
+          <QuestionShell direction={direction} title={STEP_META.buildHelp.title} highlight={STEP_META.buildHelp.highlight} rest={STEP_META.buildHelp.rest} tooltip={STEP_META.buildHelp.tooltip} transitioning={transitioning}>
             <OptionCards options={BUILD_HELP_OPTIONS} selected={answers.buildHelp} onSelect={(v) => update('buildHelp', v)} />
             <NavButtons onBack={goBack} onNext={goNext} nextLabel="Se tilvalg" />
           </QuestionShell>
         )}
 
         {phase === 'upsell' && (
-          <div className={direction === 'forward' ? 'animate-step-in-forward' : 'animate-step-in-backward'}>
+          <div className={stepAnimClass(direction, transitioning)}>
             <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-wieben-mint-light px-3 py-1 text-xs font-semibold text-wieben-forest-light">
               <svg viewBox="0 0 16 16" width="12" height="12" fill="none" aria-hidden="true">
                 <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.4" />
@@ -1059,6 +1124,7 @@ export default function PriceConfigurator() {
         {phase === 'summary' && (
           <Summary
             direction={direction}
+            transitioning={transitioning}
             answers={answers}
             price={price}
             onBack={goBack}
@@ -1105,6 +1171,7 @@ const ownFloorSentenceLabel: Record<OwnFloorType, string> = {
 
 function Summary({
   direction,
+  transitioning,
   answers,
   price,
   onBack,
@@ -1114,6 +1181,7 @@ function Summary({
   onSubmit,
 }: {
   direction: Direction
+  transitioning: boolean
   answers: ConfiguratorAnswers
   price: ReturnType<typeof calculatePrice>
   onBack: () => void
@@ -1147,7 +1215,7 @@ function Summary({
   }
 
   return (
-    <div className={direction === 'forward' ? 'animate-step-in-forward' : 'animate-step-in-backward'}>
+    <div className={stepAnimClass(direction, transitioning)}>
       <p
         ref={headingRef}
         tabIndex={-1}
