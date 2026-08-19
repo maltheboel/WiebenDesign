@@ -140,7 +140,7 @@ export const CATEGORY_META: Record<PriceCategory, { label: string; color: string
   layout: { label: 'Indretning', color: '#1d5c46' }, // produktfremvisning, natlig opbevaring
   tech: { label: 'Teknik', color: '#2f7d5f' }, // lyd/præsentation, internet
   catering: { label: 'Forplejning', color: '#6fae86' }, // kaffe, køl, håndvask, bar m.m.
-  upsell: { label: 'Mersalg', color: '#b7e4c7' }, // forsikring, opbevaring mellem messer, foto
+  upsell: { label: 'Tilvalg', color: '#b7e4c7' }, // forsikring, opbevaring mellem messer, foto — samme navn som opsummeringens "Tilvalg"-sektion
 }
 
 export interface PriceLine {
