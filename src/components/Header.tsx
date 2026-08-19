@@ -32,6 +32,12 @@ export default function Header() {
         </a>
 
         <nav className="hidden lg:flex items-center gap-8">
+          <a
+            href="#konfigurator"
+            className="text-[15px] font-semibold text-wieben-teal hover:text-wieben-teal-dark transition-colors"
+          >
+            Prisberegner
+          </a>
           {NAV_ITEMS.map((item) => (
             <a
               key={item}

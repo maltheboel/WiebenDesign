@@ -10,13 +10,11 @@ import { CATEGORY_META, type ConfiguratorAnswers, type PriceCategory, type Price
 // Med en dynamisk import hentes det kun, når brugeren rent faktisk klikker
 // "Download som PDF".
 //
-// Kontaktoplysningerne herunder er placeholders — udskift dem med Wieben
-// Designs rigtige e-mail/telefon/hjemmeside, når de foreligger.
 // ---------------------------------------------------------------------------
 const COMPANY_INFO = {
   name: 'Wieben Design',
-  email: 'kontakt@wiebendesign.dk',
-  phone: '+45 00 00 00 00',
+  email: 'WD@wiebendesign.dk',
+  phone: '+45 70 23 11 11',
   website: 'wiebendesign.dk',
 }
 

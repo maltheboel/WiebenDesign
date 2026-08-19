@@ -1069,6 +1069,14 @@ export default function PriceConfigurator() {
           />
         )}
       </div>
+
+      <p className="mt-6 flex items-center justify-center gap-2 text-center text-sm text-wieben-forest/50">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true" className="shrink-0">
+          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M5 8.2l2 2 4-4.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Ingen binding — det er helt gratis og uforpligtende at bruge prisberegneren.
+      </p>
     </section>
   )
 }
