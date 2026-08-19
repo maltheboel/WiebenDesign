@@ -28,7 +28,7 @@ export default function Header() {
     <header className="w-full border-b-2 border-wieben-teal bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-3 sm:px-6 lg:px-8">
         <a href="#" className="shrink-0">
-          <img src="/wieben-logo.png" alt="Wieben Design" className="h-9 w-auto sm:h-10" />
+          <img src={`${import.meta.env.BASE_URL}wieben-logo.png`} alt="Wieben Design" className="h-9 w-auto sm:h-10" />
         </a>
 
         <nav className="hidden lg:flex items-center gap-8">

@@ -59,7 +59,7 @@ export async function generateSummaryPdf(params: {
   doc.rect(0, 0, pageWidth, 26, 'F')
 
   try {
-    const logoDataUrl = await loadImageAsDataUrl('/wieben-logo.png')
+    const logoDataUrl = await loadImageAsDataUrl(`${import.meta.env.BASE_URL}wieben-logo.png`)
     // Logoet er 738×246 px ≈ forhold 3:1
     doc.addImage(logoDataUrl, 'PNG', marginX, 6, 34, 34 / 3)
   } catch {
