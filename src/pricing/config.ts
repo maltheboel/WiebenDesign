@@ -1,75 +1,108 @@
 // ---------------------------------------------------------------------------
 // PRISLOGIK — Wieben Design priskonfigurator
 //
-// Alle tal herunder er let at justere. Formlen er (i grove træk):
+// Formlen er (i grove træk):
 //
-//   grundpris = m² × kr./m² (afhængig af standtype) × leje/køb-faktor
-//   tillæg    = grundpris × (genbrug% + kompleksitet% + lokation% + tidsramme%)
-//   opbygning = m² × pris pr. m² for opbygning/nedtagning (kun hvis valgt)
-//   total     = grundpris + tillæg + opbygning
-//   estimat   = [total × estimateRangeLow ; total × estimateRangeHigh]
+//   grundpris  = m² × kr./m²
+//   tillæg     = grundpris × (åbne-sider% + andre %-tillæg)
+//              + faste kr.-tillæg (hængeskilt, udstyr, tilvalg m.m.)
+//   total      = grundpris + tillæg
+//   estimat    = [total × estimateRangeLow ; total × estimateRangeHigh]
 //
-// Alle beløb er i DKK ekskl. moms.
+// Alle beløb er i DKK ekskl. moms. Alle konstanter herunder kan justeres frit
+// — de fleste linjer i prisopsummeringen er navngivet efter nøglerne herunder,
+// så et nyt navn på fx et gulv-tilvalg skal opdateres begge steder.
+//
+// OBS strøm/vand: hvert udstyrsvalg i `cateringItemFee` har sin egen
+// tilslutnings-omkostning bagt ind i prisen. Hvis der senere tilføjes et
+// separat "strømpunkt"-spørgsmål, skal strøm-delen trækkes ud af disse
+// priser først, så der ikke opkræves dobbelt tillæg for samme stikkontakt.
 // ---------------------------------------------------------------------------
 
-export type StandType = 'system' | 'hybrid' | 'custom'
-export type Ownership = 'buy' | 'rent'
-export type Frequency = 'once' | 'few' | 'rotation'
-export type Complexity = 'simple' | 'medium' | 'advanced'
-export type Location = 'dk' | 'europe' | 'world'
-export type Timeframe = 'long' | 'medium' | 'short'
+export type OpenSides = 1 | 2 | 3 | 4
+export type YesNo = 'yes' | 'no'
+export type FloorChoice = 'standard' | 'own'
+export type OwnFloorType = 'vinyl' | 'wood' | 'raised'
+export type ProductDisplay = 'shelves' | 'cases' | 'hanging' | 'live'
+export type OvernightStorage = 'none' | 'cabinet' | 'room'
+export type AudioPresentation = 'none' | 'occasional' | 'regular'
+export type Internet = 'standard' | 'dedicated'
+export type CateringItem = 'coffee' | 'fridge' | 'wine_cooler' | 'sink' | 'bar'
 export type BuildHelp = 'help' | 'diy'
 
 export const PRICING_CONFIG = {
-  // 1) Grundpris pr. m², afhængig af standtype
-  pricePerSqm: {
-    system: 3200,
-    hybrid: 4200,
-    custom: 5800,
-  } satisfies Record<StandType, number>,
+  // 1) Grundpris pr. m² — dækker basis-opbygning
+  basePricePerSqm: 3200,
 
-  // 2) Leje er billigere end køb (faktor ganges på grundprisen)
-  ownershipMultiplier: {
-    buy: 1,
-    rent: 0.62,
-  } satisfies Record<Ownership, number>,
+  // 2) Åbne sider — jo flere sider der skal se færdige/præsentable ud, jo
+  //    større tillæg (i % af grundprisen)
+  openSidesSurchargePct: {
+    1: 0,
+    2: 0.12,
+    3: 0.28,
+    4: 0.45,
+  } satisfies Record<OpenSides, number>,
 
-  // 3) Skal standen bruges flere gange, kræver den ekstra robust
-  //    konstruktion til nem nedpakning/genopstilling — tillæg i % af grundpris
-  reusabilitySurchargePct: {
-    once: 0,
-    few: 0.08,
-    rotation: 0.14,
-  } satisfies Record<Frequency, number>,
+  // 3) Hængeskilt — fast tillæg (godkendelse, rigging, montagetid)
+  hangingSignFee: 8500,
 
-  // 4) Design-kompleksitet — tillæg i % af grundpris
-  complexitySurchargePct: {
-    simple: 0,
-    medium: 0.15,
-    advanced: 0.35,
-  } satisfies Record<Complexity, number>,
+  // 4) Eget gulv — pris pr. m², afhængig af gulvtype (kun hvis "eget gulv" er valgt)
+  ownFloorPricePerSqm: {
+    vinyl: 180,
+    wood: 320,
+    raised: 480,
+  } satisfies Record<OwnFloorType, number>,
 
-  // 5) Lokation — tillæg for transport + montage-koordinering, i % af grundpris
-  locationSurchargePct: {
-    dk: 0,
-    europe: 0.12,
-    world: 0.3,
-  } satisfies Record<Location, number>,
+  // 5) Sådan vises produkterne — fast tillæg pr. løsning
+  productDisplayFee: {
+    shelves: 0,
+    cases: 2800,
+    hanging: 1800,
+    live: 3500,
+  } satisfies Record<ProductDisplay, number>,
 
-  // 6) Tidsramme — rush-tillæg for prioriteret produktion, i % af grundpris
-  timeframeSurchargePct: {
-    long: 0,
-    medium: 0.1,
-    short: 0.25,
-  } satisfies Record<Timeframe, number>,
+  // 6) Natlig opbevaring — fast tillæg
+  overnightStorageFee: {
+    none: 0,
+    cabinet: 1200,
+    room: 4500,
+  } satisfies Record<OvernightStorage, number>,
 
-  // 7) Opbygning/nedtagning — fast pris pr. m² hvis Wieben Design skal stå for det
+  // 7) Lyd og præsentation — fast tillæg
+  audioPresentationFee: {
+    none: 0,
+    occasional: 1500,
+    regular: 4200,
+  } satisfies Record<AudioPresentation, number>,
+
+  // 8) Internetforbindelse — fast tillæg for dedikeret linje
+  internetFee: {
+    standard: 0,
+    dedicated: 2200,
+  } satisfies Record<Internet, number>,
+
+  // 9) Udstyr til forplejning — fast tillæg pr. valgt stykke udstyr
+  //    (inkl. tilslutning til strøm/vand/afløb, se OBS ovenfor)
+  cateringItemFee: {
+    coffee: 900,
+    fridge: 850,
+    wine_cooler: 950,
+    sink: 1600,
+    bar: 3200,
+  } satisfies Record<CateringItem, number>,
+
+  // 10) Opbygning/nedtagning — fast pris pr. m² hvis Wieben Design skal stå for det
   buildHelpPricePerSqm: {
     help: 450,
     diy: 0,
   } satisfies Record<BuildHelp, number>,
 
-  // 8) Usikkerhedsspænd på det endelige estimat (vises som prisinterval, ikke ét tal)
+  // 11-13) Mersalg — faste tillæg for valgfrie tilkøb
+  insuranceFee: 1400,
+  storageFee: 3800,
+  photographyFee: 2600,
+
+  // Usikkerhedsspænd på det endelige estimat (vises som prisinterval, ikke ét tal)
   estimateRangeLow: 0.9,
   estimateRangeHigh: 1.18,
 
@@ -81,19 +114,27 @@ export const PRICING_CONFIG = {
 
 export interface ConfiguratorAnswers {
   size: number
-  standType: StandType
-  ownership: Ownership
-  frequency: Frequency
-  complexity: Complexity
-  location: Location
-  timeframe: Timeframe
+  openSides: OpenSides
+  hangingSign: YesNo
+  floor: FloorChoice
+  ownFloorType: OwnFloorType // kun relevant når floor === 'own'
+  productDisplay: ProductDisplay
+  overnightStorage: OvernightStorage
+  audioPresentation: AudioPresentation
+  internet: Internet
+  catering: CateringItem[]
   buildHelp: BuildHelp
+  // Mersalg
+  insurance: YesNo
+  storage: YesNo
+  photography: YesNo
 }
 
 export interface PriceLine {
   label: string
   amount: number
   description: string
+  kind: 'core' | 'upsell'
 }
 
 export interface PriceResult {
@@ -103,74 +144,166 @@ export interface PriceResult {
   high: number
 }
 
-const formatDkk = (n: number) =>
-  Math.round(n / 100) * 100 // rund til nærmeste 100 kr., undgår falsk præcision
+const formatDkk = (n: number) => Math.round(n / 100) * 100 // rund til nærmeste 100 kr., undgår falsk præcision
+
+const openSidesName: Record<OpenSides, string> = {
+  1: 'rækkestand',
+  2: 'hjørnestand',
+  3: 'gavlstand',
+  4: 'ø-stand',
+}
+
+const ownFloorLabel: Record<OwnFloorType, string> = {
+  vinyl: 'Vinylgulv',
+  wood: 'Trægulv',
+  raised: 'Hævet gulv (podium)',
+}
+
+const productDisplayLabel: Record<ProductDisplay, string> = {
+  shelves: 'Åbne hylder/borde',
+  cases: 'Lukkede montrer/vitriner',
+  hanging: 'Hængende/ophængt fremvisning',
+  live: 'Live-kørende produkt',
+}
+
+const cateringLabel: Record<CateringItem, string> = {
+  coffee: 'Kaffemaskine',
+  fridge: 'Køleskab',
+  wine_cooler: 'Vinkøler',
+  sink: 'Håndvask/opvaskeplads',
+  bar: 'Bardisk/udskænkningsdisk',
+}
 
 export function calculatePrice(a: ConfiguratorAnswers): PriceResult {
   const c = PRICING_CONFIG
-
-  const basePrice = a.size * c.pricePerSqm[a.standType] * c.ownershipMultiplier[a.ownership]
-
-  const reusabilityAmount = basePrice * c.reusabilitySurchargePct[a.frequency]
-  const complexityAmount = basePrice * c.complexitySurchargePct[a.complexity]
-  const locationAmount = basePrice * c.locationSurchargePct[a.location]
-  const timeframeAmount = basePrice * c.timeframeSurchargePct[a.timeframe]
-  const buildHelpAmount = a.size * c.buildHelpPricePerSqm[a.buildHelp]
+  const base = a.size * c.basePricePerSqm
 
   const lines: PriceLine[] = [
     {
       label: `Standstørrelse: ${a.size} m²`,
-      amount: formatDkk(basePrice),
-      description: `Basisomkostning for en ${
-        a.standType === 'system' ? 'systemstand' : a.standType === 'hybrid' ? 'hybridstand' : 'skræddersyet stand'
-      } på ${a.size} m², ${a.ownership === 'rent' ? 'til leje' : 'til køb'}.`,
+      amount: formatDkk(base),
+      description: 'Grundpris for opbygning — skalerer direkte med kvadratmeter.',
+      kind: 'core',
     },
   ]
 
-  if (reusabilityAmount > 0) {
+  const openSidesAmount = base * c.openSidesSurchargePct[a.openSides]
+  if (openSidesAmount > 0) {
     lines.push({
-      label:
-        a.frequency === 'rotation'
-          ? 'Fast rotation på flere messer → tillæg for holdbar konstruktion'
-          : '2-4 messer årligt → tillæg for holdbar konstruktion',
-      amount: formatDkk(reusabilityAmount),
-      description: 'Standen bygges så den nemt og sikkert kan pakkes ned og stilles op igen.',
+      label: `${a.openSides} åbne sider (${openSidesName[a.openSides]})`,
+      amount: formatDkk(openSidesAmount),
+      description: 'Flere synlige sider betyder flere flader, der skal fremstå helt færdige.',
+      kind: 'core',
     })
   }
 
-  if (complexityAmount > 0) {
+  if (a.hangingSign === 'yes') {
     lines.push({
-      label:
-        a.complexity === 'advanced'
-          ? 'Avanceret design → tillæg for specialelementer'
-          : 'Mellemkompleks design → tillæg for ekstra detaljer',
-      amount: formatDkk(complexityAmount),
-      description: 'Podier, lyskasser, skærme og møbler kræver ekstra design- og produktionstid.',
+      label: 'Hængeskilt',
+      amount: formatDkk(c.hangingSignFee),
+      description: 'Godkendelse og rigging fra messehallen samt ekstra montagetid.',
+      kind: 'core',
     })
   }
 
-  if (locationAmount > 0) {
+  if (a.floor === 'own') {
+    const floorAmount = a.size * c.ownFloorPricePerSqm[a.ownFloorType]
     lines.push({
-      label:
-        a.location === 'world' ? 'Messe uden for Europa → transport og montage' : 'Europæisk messe → transport og montage',
-      amount: formatDkk(locationAmount),
-      description: 'Længere transport og lokal montage-koordinering lægger sig oveni prisen.',
+      label: ownFloorLabel[a.ownFloorType],
+      amount: formatDkk(floorAmount),
+      description:
+        a.ownFloorType === 'raised'
+          ? 'Løftet 5-15 cm over hallens gulv — skjuler kabler, kræver ramper ved indgange.'
+          : a.ownFloorType === 'wood'
+            ? 'Ægte eller finér-lameller — varmt udtryk, mere tid at lægge og transportere.'
+            : 'Tyndt og fleksibelt — hurtigst at lægge og billigst af de tre.',
+      kind: 'core',
     })
   }
 
-  if (timeframeAmount > 0) {
+  const displayAmount = c.productDisplayFee[a.productDisplay]
+  if (displayAmount > 0) {
     lines.push({
-      label: a.timeframe === 'short' ? 'Under 1 måned til messen → rush-tillæg' : '1-3 måneder til messen → mindre rush-tillæg',
-      amount: formatDkk(timeframeAmount),
-      description: 'Kort tid til deadline betyder prioriteret produktion i værkstedet.',
+      label: productDisplayLabel[a.productDisplay],
+      amount: formatDkk(displayAmount),
+      description: 'Sådan gæster ser og oplever jeres produkter på standen.',
+      kind: 'core',
     })
   }
 
+  const storageAmount = c.overnightStorageFee[a.overnightStorage]
+  if (storageAmount > 0) {
+    lines.push({
+      label: a.overnightStorage === 'room' ? 'Aflåst rum til natten' : 'Låsbart skab til natten',
+      amount: formatDkk(storageAmount),
+      description: 'Sikker opbevaring af værdigenstande, når hallen er lukket.',
+      kind: 'core',
+    })
+  }
+
+  const audioAmount = c.audioPresentationFee[a.audioPresentation]
+  if (audioAmount > 0) {
+    lines.push({
+      label: a.audioPresentation === 'regular' ? 'Fast lydanlæg og scenebelysning' : 'Håndholdt mikrofon/højtaler',
+      amount: formatDkk(audioAmount),
+      description: 'Udstyr til oplæg og demoer for grupper på standen.',
+      kind: 'core',
+    })
+  }
+
+  const internetAmount = c.internetFee[a.internet]
+  if (internetAmount > 0) {
+    lines.push({
+      label: 'Dedikeret internetlinje',
+      amount: formatDkk(internetAmount),
+      description: 'Egen forbindelse ud over hallens gratis wifi — til betaling, livestream eller tunge demoer.',
+      kind: 'core',
+    })
+  }
+
+  a.catering.forEach((item) => {
+    lines.push({
+      label: cateringLabel[item],
+      amount: formatDkk(c.cateringItemFee[item]),
+      description: 'Lejes særskilt og kræver tilslutning til strøm, vand eller afløb.',
+      kind: 'core',
+    })
+  })
+
+  const buildHelpAmount = a.size * c.buildHelpPricePerSqm[a.buildHelp]
   if (buildHelpAmount > 0) {
     lines.push({
       label: 'Opbygning og nedtagning inkluderet',
       amount: formatDkk(buildHelpAmount),
       description: 'Vores team klarer opbygning og nedtagning på messen for jer.',
+      kind: 'core',
+    })
+  }
+
+  if (a.insurance === 'yes') {
+    lines.push({
+      label: 'Messeforsikring (tilvalg)',
+      amount: formatDkk(c.insuranceFee),
+      description: 'Dækning mod skader, tyveri eller brand under opstilling og messe.',
+      kind: 'upsell',
+    })
+  }
+
+  if (a.storage === 'yes') {
+    lines.push({
+      label: 'Opbevaring mellem messer (tilvalg)',
+      amount: formatDkk(c.storageFee),
+      description: 'Vi opbevarer standen på vores lager, til I skal bruge den igen.',
+      kind: 'upsell',
+    })
+  }
+
+  if (a.photography === 'yes') {
+    lines.push({
+      label: 'Fotopakke (tilvalg)',
+      amount: formatDkk(c.photographyFee),
+      description: 'Professionelle fotos af den færdige stand til jeres egen markedsføring.',
+      kind: 'upsell',
     })
   }
 
